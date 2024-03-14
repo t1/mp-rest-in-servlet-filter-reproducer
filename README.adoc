@@ -1,0 +1,45 @@
+= Reproducer for a CLOSE-WAIT issue with JEE
+
+== Issue
+
+We have a servlet filter that calls a different HTTP service.
+After the call has returned, the target service leaves the connection open/alive for other requests to follow.
+After some timeout, the target service closes the connection.
+Normally, a client service confirms that the connection is closed, but in this case it does not, so it stays in `CLOSE-WAIT`.
+We had a live incident, because the possible number of open sockets was exceeded, so our service couldn't open new connections.
+
+== Workaround
+
+Regularly redeploying the application helped, as well as annotating the MP REST Client API interface as `@RequestScoped`.
+
+== Reproduce
+
+This is a minimalistic `war` file to reproduce this issue at http://localhost:8080/hello.
+It doesn't use a remote service, but simply a different endpoint in the same `war` at http://localhost:8080/hello/target.
+In order to try out different options, it handles a few query parameters:
+
+|===
+| URI | Implementation | Connection status (after timeout)
+
+|http://localhost:8080/hello?mp
+|MicroProfile REST Client API (default)
+|`CLOSE-WAIT`
+
+|http://localhost:8080/hello?jee
+|JEE REST Client API
+|`CLOSE-WAIT`
+
+|http://localhost:8080/hello?java
+|Java REST Client (since v11)
+|`CLOSED`
+
+|http://localhost:8080/hello?direct
+|MP REST Client directly (not in from the filter)
+|`CLOSED`
+|===
+
+So I assume that this issue is somewhere in the RestEasy implementation of Jakarta REST.
+I checked this with the latest version of WildFly (31.0.1.Final).
+
+Note that the default timeout for our target endpoint on WildFly is 60 seconds.
+If you don't want to wait that long, you can reduce it to, e.g., 5 seconds by executing this cli statement: `/subsystem=undertow/server=default-server/http-listener=default:write-attribute(name=no-request-timeout,value=5000)`.
