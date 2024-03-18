@@ -1,5 +1,7 @@
 = Reproducer for a CLOSE-WAIT issue with JEE
 
+See https://issues.redhat.com/browse/RESTEASY-3470
+
 == Issue
 
 We have a servlet filter that calls a different HTTP service.
@@ -19,7 +21,7 @@ It doesn't use a remote service, but simply a different endpoint in the same `wa
 In order to try out different options, it handles a few query parameters:
 
 |===
-| URI | Implementation | Connection status (after timeout)
+| URI | Implementation | Status (after timeout)
 
 |http://localhost:8080/hello?mp
 |MicroProfile REST Client API (default)
